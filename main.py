@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile
+from fastapi import FastAPI
 from pydantic import BaseModel
 from gtts import gTTS
 from moviepy.editor import *
@@ -7,46 +7,31 @@ import uuid
 
 app = FastAPI()
 
-# ✅ Make sure static folder exists
-os.makedirs("static", exist_ok=True)
-
-# ✅ Request model
-class ScriptRequest(BaseModel):
+class ScriptInput(BaseModel):
     text: str
+
+os.makedirs("static", exist_ok=True)
 
 @app.get("/")
 def root():
-    return {"message": "✅ Script to Video Backend is running!"}
+    return {"message": "✅ Script to Video backend is running!"}
 
 @app.post("/generate-video/")
-async def generate_video(request: ScriptRequest):
-    # Generate unique filenames
-    uid = uuid.uuid4().hex
-    audio_path = f"static/audio_{uid}.mp3"
-    video_path = f"static/video_{uid}.mp4"
+async def generate_video(data: ScriptInput):
+    text = data.text
+    audio_path = f"static/audio_{uuid.uuid4().hex}.mp3"
+    video_path = f"static/video_{uuid.uuid4().hex}.mp4"
 
-    # ✅ Generate voiceover using gTTS
-    tts = gTTS(request.text)
+    # Step 1: Generate audio using gTTS
+    tts = gTTS(text)
     tts.save(audio_path)
 
-    # ✅ Load audio duration
-    audio_clip = AudioFileClip(audio_path)
-    duration = audio_clip.duration
+    # Step 2: Generate video with text + audio
+    clip_duration = AudioFileClip(audio_path).duration
+    txt_clip = TextClip(text, fontsize=48, color='white', bg_color='black', size=(720, 480))
+    txt_clip = txt_clip.set_duration(clip_duration)
 
-    # ✅ Create background with subtitle text
-    text_clip = TextClip(
-        request.text,
-        fontsize=36,
-        color='black',
-        size=(1280, 720),
-        method='caption',
-        align='center'
-    ).set_duration(duration).set_position('center')
+    video = txt_clip.set_audio(AudioFileClip(audio_path))
+    video.write_videofile(video_path, fps=24)
 
-    background = ColorClip(size=(1280, 720), color=(255, 255, 255)).set_duration(duration)
-
-    # ✅ Combine background, text, and audio
-    final_video = CompositeVideoClip([background, text_clip]).set_audio(audio_clip)
-    final_video.write_videofile(video_path, fps=24)
-
-    return {"video_url": f"/static/video_{uid}.mp4"}
+    return {"video_url": f"/{video_path}"}
