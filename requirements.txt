@@ -2,6 +2,13 @@ fastapi
 uvicorn
 python-docx
 gtts
+moviepy[editor]
 moviepy
+imageio
+imageio-ffmpeg
+numpy
+pillow
+decorator
+tqdm
 pydub
 pydantic
