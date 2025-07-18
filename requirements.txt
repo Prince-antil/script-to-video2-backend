@@ -2,7 +2,6 @@ fastapi
 uvicorn
 python-docx
 gtts
-moviepy[editor]
 moviepy
 imageio
 imageio-ffmpeg
