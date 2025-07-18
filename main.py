@@ -1,41 +1,47 @@
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from fastapi import APIRouter
 from pydantic import BaseModel
 from gtts import gTTS
 import os
 import uuid
+from moviepy.editor import *
+from fastapi.responses import FileResponse
 
 app = FastAPI()
-router = APIRouter()
 
-# ✅ Ensure the static folder exists
-os.makedirs("static", exist_ok=True)
+# Ensure directories exist
+os.makedirs("static/audio", exist_ok=True)
+os.makedirs("static/video", exist_ok=True)
 
-# ✅ Pydantic model for request body
 class TextRequest(BaseModel):
     text: str
 
-# ✅ POST endpoint to generate audio
-@router.post("/generate-audio/")
-async def generate_audio(request: TextRequest):
-    text = request.text
-    filename = f"output_{uuid.uuid4().hex}.mp3"
-    filepath = os.path.join("static", filename)
-
-    # Generate and save audio
-    tts = gTTS(text)
-    tts.save(filepath)
-
-    return {"audio_url": f"/static/{filename}"}
-
-# ✅ Root health check endpoint
 @app.get("/")
 def root():
     return {"message": "✅ Script to Video Backend is running!"}
 
-# ✅ Register router
-app.include_router(router)
+@app.post("/generate-video/")
+async def generate_video(request: TextRequest):
+    text = request.text.strip()
+    audio_filename = f"audio_{uuid.uuid4().hex}.mp3"
+    audio_path = os.path.join("static/audio", audio_filename)
 
-# ✅ Serve static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
+    # 1. Generate audio from text
+    tts = gTTS(text)
+    tts.save(audio_path)
+
+    # 2. Generate video with text and audio
+    video_filename = f"video_{uuid.uuid4().hex}.mp4"
+    video_path = os.path.join("static/video", video_filename)
+
+    # Create a text clip
+    txt_clip = TextClip(
+        text, fontsize=48, color='white', bg_color='black', size=(720, 480), method='caption'
+    ).set_duration(AudioFileClip(audio_path).duration)
+
+    # Set audio
+    video = txt_clip.set_audio(AudioFileClip(audio_path))
+
+    # Export video
+    video.write_videofile(video_path, fps=24)
+
+    return {"video_url": f"/static/video/{video_filename}"}
